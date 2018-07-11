@@ -39,14 +39,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginRight="@dimen/text_margin"
-            android:textColor="@color/material_orange500"
-            android:textAppearance="?android:attr/textAppearanceLarge" />
+            android:textStyle="bold"
+            android:textColor="@color/material_grey800"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
         <TextView
             android:id="@+id/comments"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginLeft="@dimen/text_margin"
-            android:textColor="@color/material_grey900"
-            android:textAppearance="?android:attr/textAppearanceMedium" />
+            android:textStyle="bold"
+            android:textColor="@color/material_grey800"
+            android:textAppearance="?android:attr/textAppearanceSmall" />
     </LinearLayout>
 </us.brockolli.redditcomments.ui.LinkView>
