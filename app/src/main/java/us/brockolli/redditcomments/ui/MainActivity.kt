@@ -17,6 +17,7 @@ import android.os.Parcelable
 import android.support.v4.text.TextUtilsCompat
 import android.support.v7.widget.SearchView
 import android.text.TextUtils
+import android.widget.ArrayAdapter
 import android.widget.TextView
 import kotlinx.android.synthetic.main.content_main.*
 import net.cachapa.expandablelayout.ExpandableLayout
@@ -45,6 +46,15 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
         mDropdown = this.dropdown_layout
         mDropdownText = this.dropdown_text
 
+        val sortSpinner = this.sort_spinner
+        val adapter = ArrayAdapter<String>(this, R.layout.simple_spinner_item,
+                mutableListOf("relevance", "top", "new", "comments"))
+        adapter.setDropDownViewResource(R.layout.simple_spinner_dropdown_item)
+//        sortSpinner.setPopupBackgroundResource(android.R.drawable.spinner_dropdown_background)
+        sortSpinner.adapter = adapter
+//        sortSpinner.setItems("relevance", "top", "new", "comments")
+
+
         val searchManager = getSystemService(Context.SEARCH_SERVICE) as SearchManager
         searchbar.setSearchableInfo(searchManager.getSearchableInfo(componentName))
         searchbar.setIconifiedByDefault(false)
@@ -62,6 +72,7 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
                 if(newText == mSearchString || TextUtils.isEmpty(mSearchString)) {
                     hideDropdown()
                 } else {
+                    mDropdownText!!.text = "\"$mSearchString\""
                     showDropdown()
                 }
                 return false
@@ -79,6 +90,7 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
 
     override fun onResume() {
         super.onResume()
+        search(searchbar.query.toString())
 //        toast("onResume")
     }
 
@@ -92,10 +104,20 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
         handleIntent(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle?) {
+        super.onSaveInstanceState(outState)
+//        outState!!.putString("searchString", mSearchString)
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle?) {
+        super.onRestoreInstanceState(savedInstanceState)
+//        search(savedInstanceState.getString("searchString"))
+    }
+
     private fun search(searchString: String?) {
         searchString ?: return
+        hideDropdown()
         mSearchString = searchString
-        mDropdownText!!.text = "\"$searchString\""
         getLinkSearchFragment()?.search(searchString)
     }
 
