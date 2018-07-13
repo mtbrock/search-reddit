@@ -21,8 +21,10 @@ class LinkFactory {
 
         fun createListOfLinksFromJsonObject(jsonObject: JsonObject): List<Link> {
             val links = ArrayList<Link>()
-            val children = jsonObject.getAsJsonObject("data")
-                    .getAsJsonArray("children")
+            val data = jsonObject.getAsJsonObject("data")
+            data ?: return links
+            val children = data.getAsJsonArray("children")
+            children ?: return links
             for (i in 0 until children.size()) {
                 val linkData = children.get(i)
                         .getAsJsonObject().get("data")

@@ -1,5 +1,7 @@
 package us.brockolli.redditcomments.network
 
+import android.content.Context
+
 interface Request {
-    fun load()
+    fun load(context: Context)
 }

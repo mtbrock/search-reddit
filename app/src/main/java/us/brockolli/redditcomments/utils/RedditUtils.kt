@@ -10,19 +10,31 @@ class RedditUtils {
     companion object {
         private val REDDIT_URL = "https://www.reddit.com"
         //        private val SUBREDDITS_URL = "https://www.reddit.com/r/reddits.json?limit=100";
-        private val SEARCH_URL = REDDIT_URL + "/search.json?sort=comments&q="
+        private val SEARCH_PREFIX = "/search.json?type=link&restrict_sr=1&q="
+        private val SEARCH_URL = REDDIT_URL + SEARCH_PREFIX
 
-        fun createSearchUri(searchString: String): Uri {
-            return Uri.parse(createSearchUrl(searchString))
-        }
-
-        fun createSearchUrl(searchString: String): String {
+        fun createSearchUrl(searchString: String, params: Map<String, String>): String {
             val search = SearchUtils.createEncodedSearchString(searchString)
-            return "${SEARCH_URL}${search}"
+            val suffix = StringBuilder()
+            var subreddit = params.get("subreddit")
+            val searchUrl = searchUrl(subreddit)
+            params.forEach {
+                if(it.key != "subreddit") suffix.append("&${it.key}=${it.value}")
+            }
+            return "${searchUrl}${search}${suffix}"
         }
 
         fun createCommentsUrl(permalink: String): String {
             return "${REDDIT_URL}${permalink}"
+        }
+
+        fun createSubredditUrl(subreddit: String): String {
+            return "${REDDIT_URL}/r/$subreddit"
+        }
+
+        private fun searchUrl(subreddit: String?): String = when {
+            TextUtils.isEmpty(subreddit) -> SEARCH_URL
+            else -> "${REDDIT_URL}/r/$subreddit" + SEARCH_PREFIX
         }
     }
 }

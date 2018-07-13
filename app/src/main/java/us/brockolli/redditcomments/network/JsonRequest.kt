@@ -6,10 +6,9 @@ import com.koushikdutta.async.future.FutureCallback
 import com.koushikdutta.ion.Ion
 import java.lang.Exception
 
-class JsonRequest(val context: Context,
-                  val url: String,
+class JsonRequest(val url: String,
                   val callback: RequestCallback<JsonObject>): Request {
-    override fun load() {
+    override fun load(context: Context) {
         Ion.with(context)
                 .load(url)
                 .asJsonObject()

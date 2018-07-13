@@ -15,6 +15,19 @@
 
     <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
 
-    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark" />
 
+    <style name="Autocomplete" parent="Widget.AppCompat.AutoCompleteTextView">
+        <!--<item name="android:background">@color/material_grey800</item>-->
+        <item name="android:popupBackground">@android:color/transparent</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:textColorHint">@color/material_grey600</item>
+        <item name="colorControlNormal">@color/material_grey500</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
+        <item name="android:dropDownListViewStyle">@style/Autocomplete.Dropdown</item>
+    </style>
+
+    <style name="Autocomplete.Dropdown" parent="Widget.AppCompat.ListView.DropDown">
+        <item name="android:background">@color/material_grey800</item>
+    </style>
 </resources>

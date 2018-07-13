@@ -20,6 +20,7 @@ import us.brockolli.redditcomments.LogTag
 import us.brockolli.redditcomments.R
 import us.brockolli.redditcomments.model.Link
 import us.brockolli.redditcomments.model.LinkFactory
+import us.brockolli.redditcomments.network.JsonResult
 import us.brockolli.redditcomments.network.LinkSearchViewModel
 import us.brockolli.redditcomments.network.RequestCallback
 import us.brockolli.redditcomments.network.RequestFactory
@@ -37,6 +38,8 @@ class LinkSearchFragment : Fragment() {
     private var listener: OnLinkSearchInteractionListener? = null
 
     private var mListView: RecyclerView? = null
+
+    private var mSearchResult: JsonResult? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,14 +89,32 @@ class LinkSearchFragment : Fragment() {
         listener = null
     }
 
-    fun search(searchText: String?) {
+    fun search(searchText: String?, params: Map<String, String>) {
         searchText ?: return
         val searchModel = ViewModelProviders.of(requireActivity())
                 .get(LinkSearchViewModel::class.java)
-        val linksData = searchModel.search(requireContext(), searchText)
-        linksData.observe(this, Observer {
-            mListView?.adapter = LinkRecyclerViewAdapter(it!!, listener)
+        val resultData = searchModel.getJsonResult(requireContext(), searchText,
+                params)
+        resultData.observe(this, Observer {
+            mSearchResult = it
+            val jsonObject = it!!.jsonObject
+            if (jsonObject == null || it!!.e != null) {
+                // No result
+                LogTag.e("Search result empty, error msg: ${it.errorMsg}")
+            } else {
+                val links = LinkFactory.createListOfLinksFromJsonObject(jsonObject!!)
+                if (links.size > 0) {
+                    mListView?.adapter = LinkRecyclerViewAdapter(links, listener)
+                } else {
+                    // Result is empty
+                }
+            }
         })
+//        val linksData = searchModel.search(requireContext(), searchText,
+//                params)
+//        linksData.observe(this, Observer {
+//            mListView?.adapter = LinkRecyclerViewAdapter(it!!, listener)
+//        })
 //        mQueryString = "\"$searchText\""
 //        val url = RedditUtils.createSearchUrl(searchText)
 ////        val url = "https://www.reddit.com/search.json?q=A4_auMe1HsY"
