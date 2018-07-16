@@ -1,5 +1,8 @@
 package android.text;
 
+/**
+ * TextUtils placeholder for testing only.
+ */
 public class TextUtils {
     /**
      * Html-encode the string.
@@ -36,5 +39,9 @@ public class TextUtils {
             }
         }
         return sb.toString();
+    }
+
+    public static boolean isEmpty(CharSequence text) {
+        return text == null || text.toString().trim().equals("");
     }
 }
