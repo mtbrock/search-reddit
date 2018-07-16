@@ -7,16 +7,16 @@ import android.view.ViewGroup
 import us.brockolli.redditcomments.R
 
 
-import kotlinx.android.synthetic.main.fragment_link_search.view.*
+import kotlinx.android.synthetic.main.link_list_item.view.*
 import us.brockolli.redditcomments.model.Link
 
 /**
  * [RecyclerView.Adapter] that can display a [Link] and makes a call to the
- * specified [OnListFragmentInteractionListener].
+ * specified [OnListInteractionListener].
  */
 class LinkRecyclerViewAdapter(
         private val mValues: List<Link>,
-        private val mListener: LinkSearchFragment.OnLinkSearchInteractionListener?)
+        private val mListener: OnListInteractionListener)
     : RecyclerView.Adapter<LinkRecyclerViewAdapter.ViewHolder>() {
 
     private val mOnClickListener: View.OnClickListener
@@ -26,13 +26,13 @@ class LinkRecyclerViewAdapter(
             val item = v.tag as Link
             // Notify the active callbacks interface (the activity, if the fragment is attached to
             // one) that an item has been selected.
-            mListener?.onListInteraction(item)
+            mListener.onListInteraction(item)
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.fragment_link_search, parent, false)
+                .inflate(R.layout.link_list_item, parent, false)
         return ViewHolder(view)
     }
 
@@ -54,5 +54,9 @@ class LinkRecyclerViewAdapter(
         override fun toString(): String {
             return super.toString() + " '" + linkView.title.text + "'"
         }
+    }
+
+    interface OnListInteractionListener {
+        fun onListInteraction(item: Link)
     }
 }

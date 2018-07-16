@@ -1,69 +1,44 @@
 package us.brockolli.redditcomments.ui
 
-import android.content.Intent
-import android.net.Uri
-import android.os.Bundle
-import android.support.design.widget.Snackbar
-import android.support.v4.app.Fragment
-import android.support.v7.app.AppCompatActivity
-import us.brockolli.redditcomments.R
-
-import kotlinx.android.synthetic.main.activity_main.*
-import us.brockolli.redditcomments.model.Link
 import android.app.SearchManager
 import android.arch.lifecycle.Observer
 import android.arch.lifecycle.ViewModelProviders
 import android.content.Context
-import android.widget.Toast
-import android.os.Parcelable
-import android.support.v4.text.TextUtilsCompat
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.SearchView
 import android.text.TextUtils
 import android.view.Menu
-import android.widget.ArrayAdapter
-import android.widget.TextView
-import kotlinx.android.synthetic.main.content_main.*
-import net.cachapa.expandablelayout.ExpandableLayout
-import us.brockolli.redditcomments.LogTag
-import us.brockolli.redditcomments.R.id.searchbar
-import us.brockolli.redditcomments.utils.RedditUtils
-import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
-import android.view.inputmethod.InputMethodManager
+import android.view.animation.AlphaAnimation
+import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.widget_search_params.*
+import us.brockolli.redditcomments.LogTag
+import us.brockolli.redditcomments.R
+import us.brockolli.redditcomments.model.Link
 import us.brockolli.redditcomments.model.LinkFactory
-import us.brockolli.redditcomments.network.JsonResult
-import us.brockolli.redditcomments.network.LinkSearchViewModel
-import us.brockolli.redditcomments.network.RedditSearch
-import java.io.Serializable
+import us.brockolli.redditcomments.network.SearchResult
+import us.brockolli.redditcomments.utils.RedditUtils
+import us.brockolli.redditcomments.utils.ViewUtils
 
 
-class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInteractionListener {
-    var mSearchString: String? = null
-    var mDropdownText: TextView? = null
-    var mDropdown: ExpandableLayout? = null
-    var mPrefsLayout: ExpandableLayout? = null
-    var mShouldShowPrefs: Boolean = false
-    var mSearchResult: JsonResult? = null
-    var mRedditSearch: RedditSearch? = null
-    var mLastQuery: String? = null
-    var mLastParams: Map<String, String>? = null
+class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteractionListener {
+    private var mShouldShowParams: Boolean = false
+    private var mSubmittedQuery: String? = null
     private var mSearching = false
-    private var mParamsChanged = false
+    private var mSearchHasFocus = false
 
-    private var mState = State.NO_SEARCH
-    private enum class State {
-        NO_SEARCH,
-        RESULT_OK,
-        RESULT_OK_EMPTY,
-        RESULT_ERROR
-    }
+    private var mSearchResult: SearchResult? = null
 
-    override fun onListInteraction(item: Link?) {
+
+    override fun onListInteraction(item: Link) {
         val i = Intent(Intent.ACTION_VIEW)
-        i.setData(Uri.parse(RedditUtils.createCommentsUrl(item!!.permalink!!)))
+        i.data = Uri.parse(RedditUtils.createCommentsUrl(item.permalink))
         startActivity(i)
     }
 
@@ -72,9 +47,10 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        mDropdown = this.dropdown_layout
-        mDropdownText = this.dropdown_text
-        mPrefsLayout = this.prefs_layout
+        LogTag.d("onCreate")
+
+
+        mShouldShowParams = dropdown_layout.isExpanded
 
         with(link_list) {
             layoutManager = LinearLayoutManager(context)
@@ -82,12 +58,14 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
 
         search_fab.setOnClickListener {
             searchbar.clearFocus()
-            search(searchbar.query.toString())
+            searchbar.setQuery(searchbar.query, true)
         }
 
         search_params_widget.setOnParamsChangedListener(object: SearchParamsWidget.OnParamsChangedListener {
+            var lastParams: Map<String, String> = getParams()
             override fun onParamsChanged(params: Map<String, String>) {
-//                mParamsChanged = params != mLastParams
+                LogTag.d("params changed")
+                lastParams = params
                 hideOrShowSearchButton()
             }
         })
@@ -95,20 +73,24 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
         val searchManager = getSystemService(Context.SEARCH_SERVICE) as SearchManager
         searchbar.setSearchableInfo(searchManager.getSearchableInfo(componentName))
         searchbar.setIconifiedByDefault(false)
-        searchbar.setOnQueryTextFocusChangeListener { v, hasFocus ->
-            if(!hasFocus && TextUtils.isEmpty(searchbar.query) && !TextUtils.isEmpty(mSearchString)) {
-                searchbar.setQuery(mSearchString, false)
+        searchbar.setOnQueryTextFocusChangeListener { _, hasFocus ->
+            mSearchHasFocus = hasFocus
+            // Refill the search text if empty and we are displaying a valid result
+            if (!hasFocus && hasValidSearchResult() && TextUtils.isEmpty(searchbar.query)) {
+                searchbar.setQuery(mSearchResult!!.query, false)
             }
 
             // Show or hide prefs
             if(hasFocus) {
-                showPrefs()
+                showParams()
                 if (!TextUtils.isEmpty(searchbar.query)) {
                     search_fab.show()
                 }
             } else {
-                if (!mShouldShowPrefs) {
-                    hidePrefs()
+                val paramsWidgetHasFocus = search_params_widget.focusedChild != null ||
+                        search_params_widget.hasFocus()
+                if (!mShouldShowParams && !paramsWidgetHasFocus && hasValidSearchResult()) {
+                    hideParams()
                 }
                 hideOrShowSearchButton()
             }
@@ -119,76 +101,70 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                if(newText != mSearchString) {
-                    LogTag.d("hideorshow from querytextchange")
-                    hideOrShowSearchButton()
-                }
-                if(newText == mSearchString || TextUtils.isEmpty(mSearchString)) {
-//                    hideDropdown()
-                } else if (mState != State.NO_SEARCH) {
-//                    mDropdownText!!.text = "\"$mSearchString\""
-//                    showDropdown()
-                }
+                hideOrShowSearchButton()
                 return false
             }
         })
 
-//        fab.setOnClickListener { view ->
-//            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                    .setAction("Action", null).show()
-//        }
-
+        savedInstanceState?.let {
+            LogTag.d("savedInstanceState NOT null")
+            mSubmittedQuery = it.getString("submitted_query")
+            searchbar.setQuery(it.getString("query"), false)
+        }
 
         val searchModel = ViewModelProviders.of(this)
-                .get(LinkSearchViewModel::class.java)
-//        val linksData = searchModel.getLinksData(this,
-//                searchbar.query.toString(), getParams())
-        searchModel.linksData!!.observe(this, Observer {
-            it?.run {
-                bindSearchResult(it)
-            }
-        })
+                .get(SearchViewModel::class.java)
         searchModel.searchData!!.observe(this, Observer {
             it?.run {
+                LogTag.d("Observer result")
                 handleSearchResult(it)
             }
         })
-//        linksData.observe(this, Observer {
-//            mSearching = false
-//            mSearchResult = it
-//            mRedditSearch?.result = it
-//            handleSearchResult(it)
-//        })
-        handleIntent(intent)
-    }
-
-    fun bindSearchResult(result: List<Link>) {
-        LogTag.d("bindSearchResult we have a result! size: ${result.size}")
+        handleIntent()
     }
 
     override fun onResume() {
         super.onResume()
-        LogTag.d("hideorshow from onResume")
-        hideOrShowSearchButton()
-        if (mRedditSearch != null && mRedditSearch!!.hasResult()) {
-            LogTag.d("gonna reload result")
-            reloadResult()
+        LogTag.d("onResume")
+        if (!TextUtils.isEmpty(mSubmittedQuery)) {
+            if(!hasValidSearchResult() && !mSearching) {
+                LogTag.d("Searching from onResume")
+                search(mSubmittedQuery)
+            }
         } else {
-            LogTag.d("no result so gonna search")
-            search(searchbar.query.toString())
+            searchbar.isIconified = false
         }
-//        toast("onResume")
+        hideOrShowSearchButton()
     }
 
     override fun onPause() {
         super.onPause()
-        searchbar.clearFocus()
+//        searchbar.clearFocus()
         mSearching = false
     }
 
     override fun onNewIntent(intent: Intent?) {
+        LogTag.d("onNewIntent")
         setIntent(intent)
-        handleIntent(intent)
+        handleIntent()
+    }
+
+    private fun handleIntent() {
+        LogTag.d("handleIntent")
+        intent ?: return
+        when (intent.action) {
+            Intent.ACTION_SEND -> {
+                val query = intent.getStringExtra(Intent.EXTRA_TEXT)
+                LogTag.d("searching from ACTION_SEND")
+                search(query, true)
+            }
+            Intent.ACTION_SEARCH -> {
+                val query = intent.getStringExtra(SearchManager.QUERY)
+                LogTag.d("searching from ACTION_SEARCH: $query")
+                search(query, true)
+            }
+        }
+        intent = null
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -199,57 +175,90 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.action_settings -> {
-            // User chose the "Settings" item, show the app settings UI...
-            mShouldShowPrefs = !mPrefsLayout!!.isExpanded
-            if(mShouldShowPrefs) {
-                showPrefs()
+            mShouldShowParams = !params_layout.isExpanded
+            if(mShouldShowParams) {
+                showParams()
             } else {
-                hidePrefs()
+                hideParams()
             }
             true
         }
-
         else -> {
-            // If we got here, the user's action was not recognized.
-            // Invoke the superclass to handle it.
             super.onOptionsItemSelected(item)
         }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putSerializable("state", mState)
-//        if(mSearchResult != null) {
-//            LogTag.d("onSaveInstanceState: ${mSearchResult?.toString()}")
-//            outState.putSerializable("result", mSearchResult)
-//        }
-//        if(mRedditSearch != null) {
-//            LogTag.d("onSaveInstanceState: ${mRedditSearch?.toString()}, hasResult? ${mRedditSearch?.hasResult()}")
-//            outState.putSerializable("search", mRedditSearch)
-//        }
-//        outState!!.putString("searchString", mSearchString)
+        outState.putString("submitted_query", mSubmittedQuery)
+        outState.putString("query", searchbar.query.toString())
     }
 
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        mState = savedInstanceState.get("state") as State
-//        val result = savedInstanceState.get("result")
-//        var search = savedInstanceState.get("search")
-//        if (search != null) {
-//            mRedditSearch = search as RedditSearch
-//            search = search as RedditSearch
-//            LogTag.d("onRestoreInstanceState: ${search?.toString()}, hasResult? ${search?.hasResult()}")
-//        }
-//        LogTag.d("onRestoreInstanceState: ${mRedditSearch?.toString()}, hasResult? ${mRedditSearch?.hasResult()}")
-//        if (result != null) {
-//            mSearchResult = result as JsonResult
-//        }
-//        LogTag.d("onRestoreInstanceState: ${mSearchResult?.toString()}")
-//        search(savedInstanceState.getString("searchString"))
+    private fun search(query: String?, forceReload: Boolean) {
+        if(TextUtils.isEmpty(query)) {
+            LogTag.w("Attempted to search for empty query.")
+            return
+        }
+        mSubmittedQuery = query!!
+        mSearching = true
+        mShouldShowParams = false
+        hideDropdown()
+        hideParams()
+        showProgress()
+        search_fab.hide()
+        val searchModel = ViewModelProviders.of(this)
+                .get(SearchViewModel::class.java)
+        searchModel.search(this, query, getParams(), forceReload)
+    }
+
+    private fun search(query: String?) {
+        search(query, false)
+    }
+
+    private fun handleSearchResult(searchResult: SearchResult) {
+        LogTag.d("handling search result")
+        mSearchResult = searchResult
+        mSearching = false
+
+        if (searchResult.success) {
+            val links = LinkFactory.createListOfLinksFromJsonObject(searchResult.jsonObject!!)
+            updateLinks(links)
+            updateDropdown(searchResult.query, searchResult.params, links.size)
+            if (links.size == 0) {
+                showEmptyText(":(")
+            } else {
+                showList()
+            }
+        } else {
+            // show error
+            LogTag.d(searchResult.e.toString())
+            showEmptyText(searchResult.errorMsg)
+        }
+    }
+
+    private fun updateDropdown(query: String, params: Map<String, String>, numResults: Int) {
+        val subreddit = params.get("subreddit")
+        val subText = if (TextUtils.isEmpty(subreddit)) "" else " in r/$subreddit"
+        dropdown_text?.text = "$numResults results for \"$query\"$subText"
+        showDropdown()
+    }
+
+    private fun updateLinks(links: List<Link>) {
+        LogTag.d("updating links")
+        link_list.adapter = LinkRecyclerViewAdapter(links, this)
+    }
+
+    /**
+     * Return true if we have a successful search result for the last submitted query.
+     */
+    private fun hasValidSearchResult(): Boolean {
+        mSearchResult?.let {
+            return it.success && it.query == mSubmittedQuery
+        }
+        return false
     }
 
     private fun hideOrShowSearchButton() {
-        LogTag.d("Calling hideorshow")
         if(shouldSearch()) {
             search_fab.show()
         } else {
@@ -259,23 +268,23 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
 
     /**
      * Return true if we want to perform a search.
-     *
-     * If there is a result in memory, we want to search if the query text changes
-     * or if the parameters change.
-     *
-     * If there is no result in memory, we want to search if the query text is not empty
      */
     private fun shouldSearch(): Boolean {
         val query = searchbar.query.toString()
         val params = getParams()
         var shouldSearch = false
         if (TextUtils.isEmpty(query) || mSearching) {
+            LogTag.d("should NOT search")
             return false
+        }
+        if (mSearchHasFocus) {
+            return true
         }
         // Query is non-empty
 
-        if (mState == State.RESULT_OK || mState == State.RESULT_OK_EMPTY) {
-            if (query != mRedditSearch?.query || params != mRedditSearch?.params ) {
+        if (hasValidSearchResult()) {
+            if (query != mSearchResult!!.query || !params.equals(mSearchResult!!.params)) {
+                LogTag.d("should search")
                 shouldSearch = true
             }
         } else {
@@ -288,166 +297,46 @@ class MainActivity : AppCompatActivity(), LinkSearchFragment.OnLinkSearchInterac
         return search_params_widget.getParams()
     }
 
-    private fun search(searchString: String?) {
-        if(TextUtils.isEmpty(searchString)) {
-            return
-        }
-//        mSearchString = searchString
-        mLastQuery = searchString
-        mLastParams = getParams()
-        mSearching = true
-        mRedditSearch = RedditSearch(searchString!!, mLastParams!!)
-        hideDropdown()
-        mShouldShowPrefs = false
-        hidePrefs()
-        search_fab.hide()
-//        loadLinks(searchString, mLastParams!!)
-        val searchModel = ViewModelProviders.of(this)
-                .get(LinkSearchViewModel::class.java)
-//        searchModel.doLoadLinks(this, searchString, mLastParams!!)
-        searchModel.search(this, searchString, mLastParams!!)
-//        getLinkSearchFragment()?.search(searchString, getParams())
+    private fun showParams(animate: Boolean = true) {
+        params_layout.expand(animate)
     }
 
-    private fun reloadResult() {
-//        handleSearchResult(mRedditSearch?.result)
-    }
-
-    private fun handleSearchResult(search: RedditSearch) {
-        val result = search.result
-        if (search == null || result == null) {
-            LogTag.d("handleResult: RedditSearch or result is null!!!")
-            return
-        }
-
-        result.let {
-            val searchString = search!!.query
-            var numResults = 0
-            var from = from_spinner.selectedItem.toString()
-            var subreddit = subreddit_field.text.toString()
-            val jsonObject = it!!.jsonObject
-            if (jsonObject == null || it!!.e != null) {
-                // No result
-                LogTag.e("Search result empty, error msg: ${it.errorMsg}")
-                mState = State.RESULT_ERROR
-//                mState = if (it.e == null) State.RESULT_OK_EMPTY else State.RESULT_ERROR
-            } else {
-                val links = LinkFactory.createListOfLinksFromJsonObject(jsonObject!!)
-                numResults = links.size
-                val subText = if (TextUtils.isEmpty(subreddit)) "" else " in r/$subreddit"
-                mDropdownText?.text = "$numResults results for \"$searchString\"$subText from $from"
-                showDropdown()
-                if (links.size > 0) {
-                    mState = State.RESULT_OK
-                    link_list.adapter = LinkRecyclerViewAdapter(links, this)
-                } else {
-                    // Result is empty
-                    mState = State.RESULT_OK_EMPTY
-                }
-            }
-        }
-    }
-
-    private fun loadLinks(searchString: String?, params: Map<String, String>) {
-        if (searchString == null) {
-            link_list.adapter = null
-            return
-        }
-        val searchModel = ViewModelProviders.of(this)
-                .get(LinkSearchViewModel::class.java)
-        val resultData = searchModel.getJsonResult(this, searchString,
-                params, mState == State.NO_SEARCH || mState == State.RESULT_ERROR)
-        resultData.observe(this, Observer {
-            mSearching = false
-            mSearchResult = it
-            mRedditSearch?.result = it
-//            handleSearchResult(it)
-        })
-    }
-
-    private fun showPrefs(animate: Boolean = true) {
-        mPrefsLayout!!.expand(animate)
-    }
-
-    private fun hidePrefs(animate: Boolean = true) {
-        mPrefsLayout!!.collapse(animate)
+    private fun hideParams(animate: Boolean = true) {
+        params_layout.collapse(animate)
         if (subreddit_field.hasFocus()) {
             subreddit_field.clearFocus()
-            setImeVisibility(subreddit_field, false)
+            ViewUtils.setImeVisibility(subreddit_field, false)
         }
     }
 
     private fun showDropdown(animate: Boolean = true) {
-        mDropdown?.expand(animate)
+        dropdown_layout.expand(animate)
     }
 
     private fun hideDropdown(animate: Boolean = true) {
-        mDropdown?.collapse(true)
+        dropdown_layout.collapse(animate)
     }
 
-    private fun handleIntent(intent: Intent?) {
-        intent ?: return
-        when (intent.action) {
-            Intent.ACTION_SEND -> {
-                var searchString = intent.getStringExtra(Intent.EXTRA_TEXT)
-                searchbar.setQuery(searchString, true)
-                LogTag.d("searching from ACTION_SEND")
-//                search(searchString)
-            }
-            Intent.ACTION_SEARCH -> {
-                val query = intent.getStringExtra(SearchManager.QUERY)
-                LogTag.d("searching from ACTION_SEARCH: $query")
-                search(query)
-            }
-        }
-//        if (Intent.ACTION_SEND == intent.action) {
-//            searchString = intent.getStringExtra(Intent.EXTRA_TEXT)
-//            getLinkSearchFragment()?.search(searchString)
-//        }
-//
-//        toast(intentToString(intent))
-//        LogTag.d(intentToString(intent))
-//        if (Intent.ACTION_SEARCH == intent.action) {
-//            val query = intent.getStringExtra(SearchManager.QUERY)
-//            toast(query)
-//        }
+    private fun showProgress() {
+        link_list.visibility = View.GONE
+        empty_text.visibility = View.GONE
+        progress.alpha = 1f
+        progress.visibility = View.VISIBLE
     }
 
-    private fun setImeVisibility(view: View, visible: Boolean) {
-        val imm = this.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        if (!visible) {
-            imm.hideSoftInputFromWindow(view.getWindowToken(), 0)
-            return
-        }
-        if (imm.isActive(view)) {
-            imm.showSoftInput(view, 0)
-            return
-        }
+    private fun showList() {
+        ViewUtils.fadeIn(link_list)
+        ViewUtils.fadeOut(progress)
+        empty_text.visibility = View.GONE
     }
 
-    fun intentToString(intent: Intent?): String {
-        if (intent == null)
-            return ""
-
-        val stringBuilder = StringBuilder("action: ")
-                .append(intent.action)
-                .append(" data: ")
-                .append(intent.dataString)
-                .append(" extras: ")
-        if (intent.extras != null) {
-            for (key in intent.extras.keySet())
-                stringBuilder.append(key).append("=").append(intent.extras!!.get(key)).append(" ")
+    private fun showEmptyText(text: String? = null) {
+        if (text != null) {
+            empty_text.text = text
         }
 
-        return stringBuilder.toString()
-    }
-
-    private fun toast(msg: String?) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun getLinkSearchFragment(): LinkSearchFragment {
-        var fragment: Fragment? = supportFragmentManager.findFragmentById(R.id.link_search_fragment)
-        return fragment as LinkSearchFragment
+        ViewUtils.fadeIn(empty_text)
+        ViewUtils.fadeOut(progress)
+        ViewUtils.fadeOut(link_list)
     }
 }

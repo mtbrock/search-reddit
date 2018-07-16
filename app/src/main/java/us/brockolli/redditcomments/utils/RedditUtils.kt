@@ -32,6 +32,12 @@ class RedditUtils {
             return "${REDDIT_URL}/r/$subreddit"
         }
 
+        fun createParams(subreddit: String = "", sort: String = "comments", from: String = "all",
+                         limit: String = "25"): Map<String, String> {
+            return mapOf(Pair("subreddit", subreddit), Pair("sort", sort), Pair("t", from),
+                    Pair("limit", limit))
+        }
+
         private fun searchUrl(subreddit: String?): String = when {
             TextUtils.isEmpty(subreddit) -> SEARCH_URL
             else -> "${REDDIT_URL}/r/$subreddit" + SEARCH_PREFIX

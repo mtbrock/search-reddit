@@ -4,7 +4,7 @@
     tools:parentTag="android.widget.LinearLayout"
     tools:orientation="vertical">
     <net.cachapa.expandablelayout.ExpandableLayout
-        android:id="@+id/prefs_layout"
+        android:id="@+id/params_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/material_grey800"
@@ -40,22 +40,35 @@
             />
     </net.cachapa.expandablelayout.ExpandableLayout>
 
-    <net.cachapa.expandablelayout.ExpandableLayout
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:padding="0dp"
-        app:el_duration="0"
-        app:el_expanded="true"
-        app:el_parallax="0">
+        >
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone"/>
+        <TextView
+            android:id="@+id/empty_text"
+            android:text="Tip: you can search by sharing a url or text from another app to this one."
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="32dp"
+            android:layout_gravity="center_horizontal" />
         <android.support.v7.widget.RecyclerView
             android:id="@+id/link_list"
             android:name="us.brockolli.redditcomments.ui.LinkSearchFragment"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:visibility="gone"
             app:layoutManager="android.support.v7.widget.LinearLayoutManager"
             app:layout_behavior="@string/appbar_scrolling_view_behavior"
             tools:context=".ui.LinkSearchFragment"
-            tools:listitem="@layout/fragment_link_search" />
-    </net.cachapa.expandablelayout.ExpandableLayout>
+            tools:listitem="@layout/link_list_item" />
+    </FrameLayout>
 </merge>

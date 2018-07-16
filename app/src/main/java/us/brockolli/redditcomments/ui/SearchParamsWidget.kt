@@ -5,15 +5,18 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.AttributeSet
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.RelativeLayout
 import kotlinx.android.synthetic.main.widget_search_params.view.*
 import us.brockolli.redditcomments.LogTag
 import us.brockolli.redditcomments.R
+import us.brockolli.redditcomments.utils.RedditUtils
 
 class SearchParamsWidget: RelativeLayout {
     private var mOnParamsChangedListener: OnParamsChangedListener? = null
+    private var mInitialLayoutDone: Boolean = false
 
     private var mItemSelectedListener = object: AdapterView.OnItemSelectedListener {
         override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -33,6 +36,12 @@ class SearchParamsWidget: RelativeLayout {
             this(context, attrs)
 
     private fun init(context: Context) {
+        viewTreeObserver.addOnGlobalLayoutListener(object: ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                viewTreeObserver.removeOnGlobalLayoutListener(this)
+                mInitialLayoutDone = true
+            }
+        })
         View.inflate(context, R.layout.widget_search_params, this)
 
         var adapter = ArrayAdapter<String>(context, R.layout.simple_spinner_item,
@@ -56,9 +65,10 @@ class SearchParamsWidget: RelativeLayout {
         limit_spinner.setSelection(0)
         limit_spinner.onItemSelectedListener = mItemSelectedListener
 
-        adapter = ArrayAdapter<String>(context, R.layout.autocomplete_dropdown_item,
-                mutableListOf("sports", "nsfw", "WTF", "gifs", "videos", "pics", "funny", "PS4", "png"))
-        subreddit_field.setAdapter(adapter)
+//        val subs = mutableListOf("sports", "nsfw", "WTF", "gifs", "videos", "pics", "funny", "PS4", "png")
+//        adapter = ArrayAdapter<String>(context, R.layout.autocomplete_dropdown_item,
+//                mSubreddits)
+//        subreddit_field.setAdapter(adapter)
         subreddit_field.addTextChangedListener(object: TextWatcher {
             override fun afterTextChanged(s: Editable?) {
             }
@@ -77,12 +87,13 @@ class SearchParamsWidget: RelativeLayout {
         val limit = limit_spinner.selectedItem?.toString() ?: "25"
         val subreddit = subreddit_field.text.toString()
 
-        return mapOf(Pair("sort", sort), Pair("t", from), Pair("limit", limit),
-                Pair("subreddit", subreddit))
+        return RedditUtils.createParams(subreddit, sort, from, limit)
     }
 
     private fun onParamsChanged() {
-        mOnParamsChangedListener?.onParamsChanged(getParams())
+        if (mInitialLayoutDone) {
+            mOnParamsChangedListener?.onParamsChanged(getParams())
+        }
     }
 
     fun setOnParamsChangedListener(listener: OnParamsChangedListener) {

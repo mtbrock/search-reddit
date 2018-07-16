@@ -1,27 +1,25 @@
 package us.brockolli.redditcomments.ui
 
-import android.annotation.TargetApi
 import android.content.Context
-import android.os.Build
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.util.AttributeSet
 import android.widget.LinearLayout
-import kotlinx.android.synthetic.main.fragment_link_search.view.*
+import kotlinx.android.synthetic.main.link_list_item.view.*
 import us.brockolli.redditcomments.R
 import us.brockolli.redditcomments.model.Link
 
 class LinkView: LinearLayout {
-    constructor(context: Context?): super(context)
+    constructor(context: Context?): this(context, null)
     constructor(context: Context?, attrs: AttributeSet?): super(context, attrs)
-    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int = 0):
-            this(context, attrs)
 
     var link: Link? = null
         set(link) {
             field = link
-            update(link!!)
+            link?.let {
+                update(it)
+            }
         }
 
     private fun update(link: Link) {
