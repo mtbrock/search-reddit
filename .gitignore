@@ -8,6 +8,7 @@
 /.idea/caches/
 /.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
+/build/
+/app/release/
+/captures/
 .externalNativeBuild
