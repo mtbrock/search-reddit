@@ -47,7 +47,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        LogTag.d("onCreate")
 
 
         mShouldShowParams = dropdown_layout.isExpanded
@@ -64,7 +63,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
         search_params_widget.setOnParamsChangedListener(object: SearchParamsWidget.OnParamsChangedListener {
             var lastParams: Map<String, String> = getParams()
             override fun onParamsChanged(params: Map<String, String>) {
-                LogTag.d("params changed")
                 lastParams = params
                 hideOrShowSearchButton()
             }
@@ -107,7 +105,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
         })
 
         savedInstanceState?.let {
-            LogTag.d("savedInstanceState NOT null")
             mSubmittedQuery = it.getString("submitted_query")
             searchbar.setQuery(it.getString("query"), false)
         }
@@ -116,7 +113,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
                 .get(SearchViewModel::class.java)
         searchModel.searchData!!.observe(this, Observer {
             it?.run {
-                LogTag.d("Observer result")
                 handleSearchResult(it)
             }
         })
@@ -125,14 +121,13 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
 
     override fun onResume() {
         super.onResume()
-        LogTag.d("onResume")
         if (!TextUtils.isEmpty(mSubmittedQuery)) {
             if(!hasValidSearchResult() && !mSearching) {
-                LogTag.d("Searching from onResume")
                 search(mSubmittedQuery)
             }
         } else {
             searchbar.isIconified = false
+            showEmptyText(R.string.search_tip_1)
         }
         hideOrShowSearchButton()
     }
@@ -144,23 +139,19 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
     }
 
     override fun onNewIntent(intent: Intent?) {
-        LogTag.d("onNewIntent")
         setIntent(intent)
         handleIntent()
     }
 
     private fun handleIntent() {
-        LogTag.d("handleIntent")
         intent ?: return
         when (intent.action) {
             Intent.ACTION_SEND -> {
                 val query = intent.getStringExtra(Intent.EXTRA_TEXT)
-                LogTag.d("searching from ACTION_SEND")
                 search(query, true)
             }
             Intent.ACTION_SEARCH -> {
                 val query = intent.getStringExtra(SearchManager.QUERY)
-                LogTag.d("searching from ACTION_SEARCH: $query")
                 search(query, true)
             }
         }
@@ -216,7 +207,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
     }
 
     private fun handleSearchResult(searchResult: SearchResult) {
-        LogTag.d("handling search result")
         mSearchResult = searchResult
         mSearching = false
 
@@ -227,12 +217,14 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
             if (links.size == 0) {
                 showEmptyText(":(")
             } else {
+                searchbar.clearFocus()
                 showList()
             }
         } else {
             // show error
             LogTag.d(searchResult.e.toString())
-            showEmptyText(searchResult.errorMsg)
+//            showEmptyText(searchResult.errorMsg)
+            showEmptyText(R.string.search_error)
         }
     }
 
@@ -244,7 +236,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
     }
 
     private fun updateLinks(links: List<Link>) {
-        LogTag.d("updating links")
         link_list.adapter = LinkRecyclerViewAdapter(links, this)
     }
 
@@ -274,7 +265,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
         val params = getParams()
         var shouldSearch = false
         if (TextUtils.isEmpty(query) || mSearching) {
-            LogTag.d("should NOT search")
             return false
         }
         if (mSearchHasFocus) {
@@ -284,7 +274,6 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
 
         if (hasValidSearchResult()) {
             if (query != mSearchResult!!.query || !params.equals(mSearchResult!!.params)) {
-                LogTag.d("should search")
                 shouldSearch = true
             }
         } else {
@@ -338,5 +327,10 @@ class MainActivity : AppCompatActivity(), LinkRecyclerViewAdapter.OnListInteract
         ViewUtils.fadeIn(empty_text)
         ViewUtils.fadeOut(progress)
         ViewUtils.fadeOut(link_list)
+    }
+
+    private fun showEmptyText(resId: Int) {
+        empty_text.setText(resId)
+        showEmptyText()
     }
 }

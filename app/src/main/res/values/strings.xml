@@ -1,6 +1,8 @@
 <resources>
-    <string name="app_name">RedditComments</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="app_name">Search Reddit</string>
+    <string name="title_activity_main">Search reddit</string>
     <string name="action_settings">Settings</string>
     <string name="search_hint">Search reddit</string>
+    <string name="search_error">Something went wrong. Are you connected to the internet?</string>
+    <string name="search_tip_1">Tip: you can search by sharing a url or text from another app.</string>
 </resources>

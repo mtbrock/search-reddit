@@ -55,7 +55,7 @@
             android:visibility="gone"/>
         <TextView
             android:id="@+id/empty_text"
-            android:text="Tip: you can search by sharing a url or text from another app to this one."
+            android:text="@string/search_tip_1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="32dp"

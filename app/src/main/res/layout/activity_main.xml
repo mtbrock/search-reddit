@@ -28,6 +28,7 @@
                 android:id="@+id/searchbar"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
+                android:inputType="textNoSuggestions|textVisiblePassword"
                 app:iconifiedByDefault="false">
             </android.support.v7.widget.SearchView>
         </android.support.v7.widget.Toolbar>

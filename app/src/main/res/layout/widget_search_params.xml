@@ -43,6 +43,7 @@
                 android:minHeight="?android:attr/listPreferredItemHeightSmall"
                 android:theme="@style/Autocomplete"
                 android:textColor="@color/material_grey100"
+                android:inputType="textNoSuggestions|textVisiblePassword"
                 android:completionThreshold="1"
                 />
         </RelativeLayout>
